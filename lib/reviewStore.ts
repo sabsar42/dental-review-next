@@ -104,10 +104,29 @@ export function useReviews() {
     }
   }, []);
 
-  return { reviews, loaded, loadError, saveReview };
+  const unmarkReview = useCallback(async (imageId: number) => {
+    const previous = reviews;
+    setReviews((prev) => {
+      const next = { ...prev };
+      delete next[imageId];
+      writeCachedResponses(next);
+      return next;
+    });
+
+    const res = await fetch(`/api/reviews/${imageId}`, { method: "DELETE" });
+    if (!res.ok) {
+      // roll back the optimistic removal so the UI reflects reality
+      setReviews(previous);
+      writeCachedResponses(previous);
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error ?? "Failed to unmark review on the server");
+    }
+  }, [reviews]);
+
+  return { reviews, loaded, loadError, saveReview, unmarkReview };
 }
 
-export function toExportRows(reviewerName: string, reviews: Record<number, ImageReview>): ExportRow[] {
+export function toExportRows(reviews: Record<number, ImageReview>): ExportRow[] {
   const rows: ExportRow[] = [];
   for (const review of Object.values(reviews)) {
     const issues = Object.values(review.issues).sort((a, b) => a.toothNumber - b.toothNumber);
@@ -115,7 +134,7 @@ export function toExportRows(reviewerName: string, reviews: Record<number, Image
 
     for (const issue of issues) {
       rows.push({
-        reviewer_name: reviewerName,
+        reviewer_name: review.reviewerName,
         image_id: review.imageId,
         image_filename: review.imageFileName,
         tooth_number: issue.toothNumber,
@@ -137,7 +156,7 @@ export function toExportRows(reviewerName: string, reviews: Record<number, Image
     for (const tooth of review.teeth) {
       if (flaggedNumbers.has(tooth.toothNumber)) continue;
       rows.push({
-        reviewer_name: reviewerName,
+        reviewer_name: review.reviewerName,
         image_id: review.imageId,
         image_filename: review.imageFileName,
         tooth_number: tooth.toothNumber,

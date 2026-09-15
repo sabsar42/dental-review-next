@@ -18,22 +18,53 @@ interface AnnotationsResponse {
   teeth: ToothAnnotation[];
 }
 
+function formatReviewedAt(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  } catch {
+    return iso;
+  }
+}
+
 export default function ImageCard({
   image,
   displayNumber,
   savedReview,
+  reviewerName,
   onSave,
+  onUnmark,
 }: {
   image: DatasetImage;
   displayNumber: number;
   savedReview: ImageReview | null;
+  reviewerName: string;
   onSave: (imageId: number, review: ImageReview) => Promise<void>;
+  onUnmark: (imageId: number) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [confirmingUnmark, setConfirmingUnmark] = useState(false);
+  const [unmarking, setUnmarking] = useState(false);
+  const [unmarkError, setUnmarkError] = useState<string | null>(null);
   const reviewed = savedReview !== null;
 
   const encodedName = encodeURIComponent(image.fileName);
   const thumbSrc = `/api/image/${encodedName}?kind=overlay`;
+
+  async function handleUnmark() {
+    setUnmarking(true);
+    setUnmarkError(null);
+    try {
+      await onUnmark(image.id);
+      setConfirmingUnmark(false);
+    } catch (err) {
+      setUnmarkError(err instanceof Error ? err.message : "Failed to unmark — please try again");
+    } finally {
+      setUnmarking(false);
+    }
+  }
 
   return (
     <div
@@ -59,6 +90,12 @@ export default function ImageCard({
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {image.width}×{image.height} · {image.toothCount} teeth marked
               </p>
+              {reviewed && savedReview && (
+                <p className="mt-1 text-xs text-green-700 dark:text-green-400">
+                  Reviewed by {savedReview.reviewerName || "Unnamed reviewer"} on{" "}
+                  {formatReviewedAt(savedReview.reviewedAt)}
+                </p>
+              )}
             </div>
 
             <button
@@ -70,6 +107,16 @@ export default function ImageCard({
             >
               {reviewed ? "Review complete — edit" : "Start review"}
             </button>
+
+            {reviewed && (
+              <button
+                type="button"
+                onClick={() => setConfirmingUnmark(true)}
+                className="block w-full rounded-lg border border-slate-300 px-3 py-1.5 text-center text-xs font-semibold text-slate-500 transition-colors hover:border-red-400 hover:text-red-600 dark:border-slate-700 dark:text-slate-400 dark:hover:border-red-700 dark:hover:text-red-400"
+              >
+                Unmark as reviewed
+              </button>
+            )}
           </div>
         </>
       )}
@@ -79,9 +126,48 @@ export default function ImageCard({
           image={image}
           displayNumber={displayNumber}
           savedReview={savedReview}
+          reviewerName={reviewerName}
           onClose={() => setExpanded(false)}
           onSave={onSave}
         />
+      )}
+
+      {confirmingUnmark && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl dark:bg-slate-900">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+              Are you sure you want to unmark this review?
+            </h3>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              This will remove the saved review for X-ray {displayNumber}, including all flags and answers. This
+              cannot be undone.
+            </p>
+            {unmarkError && (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">{unmarkError}</p>
+            )}
+            <div className="mt-4 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmingUnmark(false);
+                  setUnmarkError(null);
+                }}
+                disabled={unmarking}
+                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-teal-400 hover:text-teal-700 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleUnmark}
+                disabled={unmarking}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {unmarking ? "Unmarking…" : "Yes, unmark it"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -102,12 +188,14 @@ function ExpandedReview({
   image,
   displayNumber,
   savedReview,
+  reviewerName,
   onClose,
   onSave,
 }: {
   image: DatasetImage;
   displayNumber: number;
   savedReview: ImageReview | null;
+  reviewerName: string;
   onClose: () => void;
   onSave: (imageId: number, review: ImageReview) => Promise<void>;
 }) {
@@ -204,9 +292,15 @@ function ExpandedReview({
   async function handleSave() {
     if (!annotations) return;
 
+    if (!reviewerName.trim()) {
+      setSaveError("Please enter your name at the top of the page before saving.");
+      return;
+    }
+
     const review: ImageReview = {
       imageId: annotations.imageId,
       imageFileName: annotations.fileName,
+      reviewerName: reviewerName.trim(),
       missingTeeth: q1,
       missingDescription: q1Detail,
       phantomMarks: q2,

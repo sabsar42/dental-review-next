@@ -31,6 +31,7 @@ export interface ToothRef {
 export interface ImageReview {
   imageId: number;
   imageFileName: string;
+  reviewerName: string;
   missingTeeth: "Yes" | "No";
   missingDescription: string;
   phantomMarks: "Yes" | "No";

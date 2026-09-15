@@ -16,11 +16,18 @@ export interface DatasetImage {
 export default function ImageGallery() {
   const [images, setImages] = useState<DatasetImage[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { name: reviewerName } = useReviewerName();
-  const { reviews, loadError: reviewsError, saveReview } = useReviews();
+  const { name: reviewerName, setName: setReviewerName } = useReviewerName();
+  const { reviews, loadError: reviewsError, saveReview, unmarkReview } = useReviews();
+
+  const today = new Date().toLocaleDateString(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 
   async function handleDownloadAll() {
-    const rows = toExportRows(reviewerName || "Unnamed reviewer", reviews);
+    const rows = toExportRows(reviews);
     if (rows.length === 0) {
       alert("No responses saved yet. Review at least one image first.");
       return;
@@ -75,6 +82,22 @@ export default function ImageGallery() {
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-10">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+            Reviewer name:
+            <input
+              type="text"
+              value={reviewerName}
+              onChange={(e) => setReviewerName(e.target.value)}
+              placeholder="Enter your name"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            />
+          </label>
+          <span className="text-sm text-slate-500 dark:text-slate-400">{today}</span>
+        </div>
+      </div>
+
       <div className="mb-6 flex items-center justify-between">
         <p className="text-sm text-slate-500 dark:text-slate-400">
           {images.length} image{images.length === 1 ? "" : "s"}
@@ -101,7 +124,9 @@ export default function ImageGallery() {
             image={img}
             displayNumber={idx + 1}
             savedReview={reviews[img.id] ?? null}
+            reviewerName={reviewerName}
             onSave={saveReview}
+            onUnmark={unmarkReview}
           />
         ))}
       </div>

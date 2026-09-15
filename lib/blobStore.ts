@@ -39,3 +39,17 @@ export async function saveReview(imageId: number, review: ImageReview): Promise<
     memoryFallback = { [imageId]: review };
   }
 }
+
+export async function deleteReview(imageId: number): Promise<void> {
+  if (memoryFallback) {
+    delete memoryFallback[imageId];
+    return;
+  }
+  try {
+    const all = await loadAllReviews();
+    delete all[imageId];
+    await store().setJSON(KEY, all);
+  } catch {
+    // nothing to fall back to — if Blobs is unreachable there's nothing saved anyway
+  }
+}
