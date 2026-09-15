@@ -36,6 +36,7 @@ export default function ImageCard({
   reviewerName,
   onSave,
   onUnmark,
+  priorityLoad = false,
 }: {
   image: DatasetImage;
   displayNumber: number;
@@ -43,6 +44,7 @@ export default function ImageCard({
   reviewerName: string;
   onSave: (imageId: number, review: ImageReview) => Promise<void>;
   onUnmark: (imageId: number) => Promise<void>;
+  priorityLoad?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [confirmingUnmark, setConfirmingUnmark] = useState(false);
@@ -52,6 +54,7 @@ export default function ImageCard({
 
   const encodedName = encodeURIComponent(image.fileName);
   const thumbSrc = `/api/image/overlay/${encodedName}`;
+  const rawSrc = `/api/image/raw/${encodedName}`;
 
   async function handleUnmark() {
     setUnmarking(true);
@@ -74,9 +77,22 @@ export default function ImageCard({
     >
       {!expanded && (
         <>
+          {/* Prefetch the raw (no-overlay) variant in the background — it's
+              only fetched today when a reviewer opens the card and unchecks
+              "Show overlay", which would otherwise mean a fresh wait on
+              mobile networks right when they need it. */}
+          <link rel="prefetch" as="image" href={rawSrc} />
+
           <div className="relative aspect-square overflow-hidden bg-slate-100 dark:bg-slate-800">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={thumbSrc} alt={`X-ray ${displayNumber}`} className="h-full w-full object-cover" />
+            <img
+              src={thumbSrc}
+              alt={`X-ray ${displayNumber}`}
+              className="h-full w-full object-cover"
+              loading={priorityLoad ? "eager" : "lazy"}
+              fetchPriority={priorityLoad ? "high" : "auto"}
+              decoding="async"
+            />
             {reviewed && (
               <span className="absolute left-3 top-3 flex items-center gap-1 rounded-full border border-green-600 bg-green-600/90 px-2.5 py-1 text-xs font-medium text-white shadow-sm">
                 ✓ Reviewed
@@ -101,7 +117,7 @@ export default function ImageCard({
             <button
               type="button"
               onClick={() => setExpanded(true)}
-              className={`block w-full rounded-lg px-3 py-2 text-center text-sm font-semibold text-white transition-colors ${
+              className={`block min-h-11 w-full rounded-lg px-3 py-2 text-center text-sm font-semibold text-white transition-colors ${
                 reviewed ? "bg-green-600 hover:bg-green-700" : "bg-teal-600 hover:bg-teal-700"
               }`}
             >
@@ -112,7 +128,7 @@ export default function ImageCard({
               <button
                 type="button"
                 onClick={() => setConfirmingUnmark(true)}
-                className="block w-full rounded-lg border border-slate-300 px-3 py-1.5 text-center text-xs font-semibold text-slate-500 transition-colors hover:border-red-400 hover:text-red-600 dark:border-slate-700 dark:text-slate-400 dark:hover:border-red-700 dark:hover:text-red-400"
+                className="block min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-center text-xs font-semibold text-slate-500 transition-colors hover:border-red-400 hover:text-red-600 dark:border-slate-700 dark:text-slate-400 dark:hover:border-red-700 dark:hover:text-red-400"
               >
                 Unmark as reviewed
               </button>
@@ -145,7 +161,7 @@ export default function ImageCard({
             {unmarkError && (
               <p className="mt-2 text-sm text-red-600 dark:text-red-400">{unmarkError}</p>
             )}
-            <div className="mt-4 flex justify-end gap-3">
+            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
               <button
                 type="button"
                 onClick={() => {
@@ -153,7 +169,7 @@ export default function ImageCard({
                   setUnmarkError(null);
                 }}
                 disabled={unmarking}
-                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-teal-400 hover:text-teal-700 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                className="min-h-11 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-teal-400 hover:text-teal-700 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               >
                 Cancel
               </button>
@@ -161,7 +177,7 @@ export default function ImageCard({
                 type="button"
                 onClick={handleUnmark}
                 disabled={unmarking}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="min-h-11 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {unmarking ? "Unmarking…" : "Yes, unmark it"}
               </button>
@@ -370,47 +386,53 @@ function ExpandedReview({
   return (
     <div>
       {/* Header row: title + view controls, spans full width above both panes */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5 pb-4 dark:border-slate-800">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 border-b border-slate-200 p-4 pb-4 sm:p-5 dark:border-slate-800">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <h2 className="text-sm font-semibold text-teal-700 dark:text-teal-400">X-ray {displayNumber}</h2>
           <span className="text-xs text-slate-500 dark:text-slate-400">{teeth.length} teeth marked</span>
           <AutoSaveIndicator status={autoSaveStatus} />
         </div>
         <div className="flex flex-wrap gap-2">
-          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+          <label className="flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 sm:flex-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
             <input
               type="checkbox"
               checked={showOverlay}
               onChange={(e) => setShowOverlay(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+              className="h-5 w-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
             />
             Show overlay
           </label>
-          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+          <label className="flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 sm:flex-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
             <input
               type="checkbox"
               checked={showNumbers}
               onChange={(e) => setShowNumbers(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+              className="h-5 w-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
             />
             Show numbers
           </label>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
-        {/* LEFT: fixed image pane */}
-        <div className="border-b border-slate-200 p-5 dark:border-slate-800 lg:border-b-0 lg:border-r">
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+        {/* LEFT: image pane — fixed/sticky only at lg+; flows normally on mobile */}
+        <div className="border-b border-slate-200 p-4 sm:p-5 lg:border-b-0 lg:border-r dark:border-slate-800">
           <div className="lg:sticky lg:top-4">
             <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt={`X-ray ${displayNumber}`} className="h-full w-full object-contain" />
+              <img
+                src={src}
+                alt={`X-ray ${displayNumber}`}
+                className="h-full w-full object-contain"
+                fetchPriority="high"
+                decoding="async"
+              />
               {showNumbers &&
                 teeth.map((t) =>
                   t.centroid ? (
                     <div
                       key={t.annotationId}
-                      className={`absolute flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 text-xs font-bold shadow ${
+                      className={`absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 text-xs font-bold shadow sm:h-6 sm:w-6 ${
                         openToothNumber === t.toothNumber
                           ? "border-teal-600 bg-teal-500 text-white"
                           : flagged.has(t.toothNumber)
@@ -431,20 +453,21 @@ function ExpandedReview({
           </div>
         </div>
 
-        {/* RIGHT: scrollable tooth list + fixed "about this X-ray" card below it */}
-        <div className="flex max-h-[85vh] flex-col">
+        {/* RIGHT: on mobile, flows in the normal page scroll; at lg+, scrolls
+            independently from the sticky image so the two panes stay side by side */}
+        <div className="flex flex-col lg:max-h-[85vh]">
           {banner && (
-            <div className="mx-5 mt-5 rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/40 dark:text-green-300">
+            <div className="mx-4 mt-4 rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800 sm:mx-5 sm:mt-5 dark:border-green-800 dark:bg-green-950/40 dark:text-green-300">
               {banner}
             </div>
           )}
           {saveError && (
-            <div className="mx-5 mt-5 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300">
+            <div className="mx-4 mt-4 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 sm:mx-5 sm:mt-5 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300">
               Could not save: {saveError}
             </div>
           )}
 
-          <div className="flex-1 space-y-3 overflow-y-auto p-5">
+          <div className="flex-1 space-y-3 p-4 sm:p-5 lg:overflow-y-auto">
             <section>
               <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Tooth-by-tooth check</h3>
               <p className="mb-3 mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -461,7 +484,7 @@ function ExpandedReview({
                     <button
                       type="button"
                       onClick={() => handleRowClick(t, isFlagged)}
-                      className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors ${
+                      className={`flex min-h-12 w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm transition-colors ${
                         i !== 0 ? "border-t border-slate-100 dark:border-slate-800" : ""
                       } ${
                         isOpen
@@ -472,7 +495,7 @@ function ExpandedReview({
                       }`}
                     >
                       <span className="flex items-center gap-2">
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-xs font-bold text-black">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-xs font-bold text-black">
                           {t.toothNumber}
                         </span>
                         <span className="text-slate-700 dark:text-slate-300">{t.toothType}</span>
@@ -498,7 +521,7 @@ function ExpandedReview({
                               }
                             }}
                             title="Remove this flag — mark as correct"
-                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-red-400 text-sm font-bold text-red-500 transition-colors hover:border-red-600 hover:bg-red-600 hover:text-white dark:border-red-700 dark:text-red-400 dark:hover:bg-red-700"
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-red-400 text-sm font-bold text-red-500 transition-colors hover:border-red-600 hover:bg-red-600 hover:text-white dark:border-red-700 dark:text-red-400 dark:hover:bg-red-700"
                           >
                             ✕
                           </span>
@@ -515,17 +538,17 @@ function ExpandedReview({
                         <p className="mb-2 text-xs font-semibold text-slate-600 dark:text-slate-400">
                           What&apos;s wrong with tooth {t.toothNumber}?
                         </p>
-                        <div className="flex flex-wrap gap-3">
+                        <div className="flex flex-wrap gap-x-4 gap-y-2">
                           {ISSUE_REASONS.map((r) => (
                             <label
                               key={r}
-                              className="flex items-center gap-1.5 text-sm text-slate-700 dark:text-slate-300"
+                              className="flex min-h-11 items-center gap-2 text-sm text-slate-700 dark:text-slate-300"
                             >
                               <input
                                 type="checkbox"
                                 checked={issue.reasons.includes(r)}
                                 onChange={() => toggleReason(t.annotationId, r)}
-                                className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                                className="h-5 w-5 rounded border-slate-300 text-red-600 focus:ring-red-500"
                               />
                               {r}
                             </label>
@@ -540,7 +563,7 @@ function ExpandedReview({
                             <select
                               value={issue.suggestedType}
                               onChange={(e) => updateIssue(t.annotationId, { suggestedType: e.target.value })}
-                              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
+                              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-teal-500 focus:outline-none sm:py-2 sm:text-sm dark:border-slate-700 dark:bg-slate-800"
                             >
                               {TOOTH_TYPE_CHOICES.map((c) => (
                                 <option key={c} value={c}>
@@ -556,13 +579,13 @@ function ExpandedReview({
                           value={issue.comment}
                           onChange={(e) => updateIssue(t.annotationId, { comment: e.target.value })}
                           placeholder="Comment (optional)"
-                          className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
+                          className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-teal-500 focus:outline-none sm:py-2 sm:text-sm dark:border-slate-700 dark:bg-slate-800"
                         />
 
                         <button
                           type="button"
                           onClick={() => setOpenToothNumber(null)}
-                          className="mt-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-teal-400 hover:text-teal-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                          className="mt-3 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:border-teal-400 hover:text-teal-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                         >
                           Close
                         </button>
@@ -575,7 +598,7 @@ function ExpandedReview({
             </section>
           </div>
 
-          <div className="border-t border-slate-200 p-5 dark:border-slate-800">
+          <div className="border-t border-slate-200 p-4 sm:p-5 dark:border-slate-800">
             <section className="space-y-4 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
               <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">About this X-ray</h3>
 
@@ -587,7 +610,7 @@ function ExpandedReview({
                     onChange={(e) => setQ1Detail(e.target.value)}
                     placeholder="Describe by location, e.g. upper left back molar"
                     rows={2}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base focus:border-teal-500 focus:outline-none sm:py-2 sm:text-sm dark:border-slate-700 dark:bg-slate-800"
                   />
                 )}
               </div>
@@ -605,18 +628,18 @@ function ExpandedReview({
                     onChange={(e) => setQ2Detail(e.target.value)}
                     placeholder="Describe which marks look incorrect"
                     rows={2}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base focus:border-teal-500 focus:outline-none sm:py-2 sm:text-sm dark:border-slate-700 dark:bg-slate-800"
                   />
                 )}
               </div>
             </section>
           </div>
 
-          <div className="flex items-center justify-between gap-3 border-t border-slate-200 p-4 dark:border-slate-800">
+          <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-teal-400 hover:text-teal-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              className="min-h-11 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-teal-400 hover:text-teal-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             >
               Cancel
             </button>
@@ -624,7 +647,7 @@ function ExpandedReview({
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-11 flex-1 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none"
             >
               {saving ? "Saving…" : "Save and mark complete"}
             </button>
@@ -682,13 +705,13 @@ function YesNoQuestion({
 
   return (
     <div
-      className={`flex items-center justify-between gap-4 rounded-lg border-2 bg-slate-50 px-3 py-2.5 dark:bg-slate-800/60 ${borderClass}`}
+      className={`flex flex-col gap-3 rounded-lg border-2 bg-slate-50 px-3 py-2.5 dark:bg-slate-800/60 sm:flex-row sm:items-center sm:justify-between sm:gap-4 ${borderClass}`}
     >
       <p className="text-sm text-slate-700 dark:text-slate-300">{label}</p>
-      <div className="flex shrink-0 gap-3">
+      <div className="flex shrink-0 gap-4">
         {(["No", "Yes"] as const).map((opt) => (
-          <label key={opt} className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400">
-            <input type="radio" checked={value === opt} onChange={() => onChange(opt)} />
+          <label key={opt} className="flex min-h-8 items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+            <input type="radio" checked={value === opt} onChange={() => onChange(opt)} className="h-5 w-5" />
             {opt}
           </label>
         ))}

@@ -151,3 +151,79 @@ export function annotationCentroid(ann: CocoAnnotation): { x: number; y: number 
   }
   return null;
 }
+
+// ---- FDI (ISO 3950) tooth numbering ----------------------------------------
+//
+// Standard panoramic X-ray convention: the patient's RIGHT side is shown on
+// the image's LEFT (as if facing the patient), so:
+//   upper-right = quadrant 1, upper-left = quadrant 2,
+//   lower-left  = quadrant 3, lower-right = quadrant 4
+// Position within the quadrant (1-8) is fixed by tooth type, counted from
+// the midline outward, regardless of annotation order.
+
+const FDI_POSITION_BY_TYPE: Record<string, number> = {
+  "Central Incisor": 1,
+  "Lateral Incisor": 2,
+  Canine: 3,
+  "First Premolar": 4,
+  "Second Premolar": 5,
+  "First Molar": 6,
+  "Second Molar": 7,
+  "Third Molar": 8,
+};
+
+export interface PositionedTooth {
+  annotationId: number;
+  toothType: string;
+  centroid: { x: number; y: number };
+}
+
+/**
+ * Assigns each tooth an FDI number derived purely from its anatomical
+ * position (arch + side, from centroid geometry) and its type (position
+ * digit) — never from annotation order, which is arbitrary.
+ */
+export function assignFdiNumbers(teeth: PositionedTooth[]): Map<number, number> {
+  const result = new Map<number, number>();
+  if (teeth.length === 0) return result;
+
+  // Split into upper (maxilla) / lower (mandible) arches by y — teeth
+  // cluster into two clear bands, so split at the midpoint between them.
+  const sortedByY = [...teeth].sort((a, b) => a.centroid.y - b.centroid.y);
+  let splitIndex = 1;
+  let biggestGap = -Infinity;
+  for (let i = 1; i < sortedByY.length; i++) {
+    const gap = sortedByY[i].centroid.y - sortedByY[i - 1].centroid.y;
+    if (gap > biggestGap) {
+      biggestGap = gap;
+      splitIndex = i;
+    }
+  }
+  const upperIds = new Set(sortedByY.slice(0, splitIndex).map((t) => t.annotationId));
+
+  for (const arch of ["upper", "lower"] as const) {
+    const archTeeth = teeth.filter((t) => upperIds.has(t.annotationId) === (arch === "upper"));
+    if (archTeeth.length === 0) continue;
+
+    // Side is relative to this arch's own midline (mean x), not the whole
+    // image, so a slightly off-center jaw doesn't misclassify teeth.
+    const midlineX = archTeeth.reduce((sum, t) => sum + t.centroid.x, 0) / archTeeth.length;
+
+    for (const tooth of archTeeth) {
+      const position = FDI_POSITION_BY_TYPE[tooth.toothType];
+      if (!position) continue; // unknown type — leave unnumbered rather than guess
+
+      const isImageRight = tooth.centroid.x >= midlineX; // image-right = patient's left
+      let quadrant: number;
+      if (arch === "upper") {
+        quadrant = isImageRight ? 2 : 1;
+      } else {
+        quadrant = isImageRight ? 3 : 4;
+      }
+
+      result.set(tooth.annotationId, quadrant * 10 + position);
+    }
+  }
+
+  return result;
+}
