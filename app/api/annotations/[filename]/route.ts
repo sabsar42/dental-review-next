@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { annotationCentroid, assignFdiNumbers, loadCocoData, plainEnglishCategoryName } from "@/lib/hf";
+import { annotationCentroid, assignFdiNumbers, fdiDisplayRank, loadCocoData, plainEnglishCategoryName } from "@/lib/hf";
 import type { PositionedTooth } from "@/lib/hf";
 
 export interface ToothAnnotation {
@@ -58,7 +58,7 @@ export async function GET(
         toothType: categoryNameById.get(ann.category_id) ?? "Not sure",
         centroid: centroidByAnnotationId.get(ann.id) ?? null,
       }))
-      .sort((a, b) => a.toothNumber - b.toothNumber);
+      .sort((a, b) => fdiDisplayRank(a.toothNumber) - fdiDisplayRank(b.toothNumber));
 
     return NextResponse.json(
       {
