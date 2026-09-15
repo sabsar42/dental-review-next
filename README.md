@@ -2,9 +2,9 @@
 
 A web application for reviewing tooth annotations on dental X-rays. Reviewers can inspect marked teeth, flag annotation problems, answer image-level questions, and download the collected responses as an Excel workbook.
 
-![Dental X-Ray Review gallery](docs/screenshot.png)
+![Dental X-Ray Review gallery](1.png)
 
-![Dental X-Ray Review image review](docs/screenshot-review.png)
+![Dental X-Ray Review image review](2.png)
 
 ## Features
 
