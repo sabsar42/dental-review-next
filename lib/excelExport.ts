@@ -38,6 +38,31 @@ function statusFillColor(status: string): string {
   return STATUS_COLORS[status] ?? FLAGGED_COLOR;
 }
 
+// Light, readable row-band colors cycled by image_id, so every row belonging
+// to the same X-ray shares one color and adjacent images are visually
+// separated even with dark text on top.
+const IMAGE_ROW_COLORS = [
+  "FFE3F2FD", // light blue
+  "FFE8F5E9", // light green
+  "FFFFF3E0", // light orange
+  "FFF3E5F5", // light purple
+  "FFFCE4EC", // light pink
+  "FFE0F7FA", // light cyan
+  "FFFFFDE7", // light yellow
+  "FFEFEBE9", // light brown
+  "FFE8EAF6", // light indigo
+  "FFF1F8E9", // light lime
+];
+
+function imageRowColor(imageId: number, order: Map<number, number>): string {
+  let index = order.get(imageId);
+  if (index === undefined) {
+    index = order.size;
+    order.set(imageId, index);
+  }
+  return IMAGE_ROW_COLORS[index % IMAGE_ROW_COLORS.length];
+}
+
 export async function downloadResponsesAsExcel(rows: ExportRow[]) {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Dental Review");
@@ -60,9 +85,20 @@ export async function downloadResponsesAsExcel(rows: ExportRow[]) {
   sheet.views = [{ state: "frozen", ySplit: 1 }];
 
   const statusColIndex = COLUMNS.findIndex((c) => c.key === "status") + 1;
+  const imageIdOrder = new Map<number, number>();
 
   for (const row of rows) {
     const excelRow = sheet.addRow(row);
+    const rowColor = imageRowColor(row.image_id, imageIdOrder);
+
+    excelRow.eachCell({ includeEmpty: true }, (cell) => {
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: rowColor },
+      };
+    });
+
     if (statusColIndex > 0) {
       const statusCell = excelRow.getCell(statusColIndex);
       statusCell.fill = {

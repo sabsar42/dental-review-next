@@ -3,6 +3,7 @@ import type { ImageReview } from "./reviewTypes";
 
 const STORE_NAME = "dental-reviews";
 const KEY = "responses.json";
+const REVIEWER_NAME_KEY = "reviewer-name.txt";
 
 // In-memory fallback used only when Netlify Blobs isn't configured, i.e.
 // running under plain `next dev` outside Netlify's runtime. On an actual
@@ -10,9 +11,33 @@ const KEY = "responses.json";
 // This fallback does NOT persist across server restarts — it exists purely
 // so local UI development doesn't hard-fail on this route.
 let memoryFallback: Record<number, ImageReview> | null = null;
+let memoryReviewerName: string | null = null;
 
 function store() {
   return getStore(STORE_NAME);
+}
+
+export async function loadReviewerName(): Promise<string> {
+  if (memoryReviewerName !== null) return memoryReviewerName;
+  try {
+    const name = await store().get(REVIEWER_NAME_KEY, { type: "text" });
+    return name ?? "";
+  } catch {
+    memoryReviewerName = "";
+    return memoryReviewerName;
+  }
+}
+
+export async function saveReviewerName(name: string): Promise<void> {
+  if (memoryReviewerName !== null) {
+    memoryReviewerName = name;
+    return;
+  }
+  try {
+    await store().set(REVIEWER_NAME_KEY, name);
+  } catch {
+    memoryReviewerName = name;
+  }
 }
 
 export async function loadAllReviews(): Promise<Record<number, ImageReview>> {

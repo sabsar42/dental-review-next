@@ -55,34 +55,14 @@ export default function ImageGallery() {
     };
   }, []);
 
-  if (error) {
-    return (
-      <div className="mx-auto max-w-7xl px-6 py-10">
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
-          Could not load the dataset: {error}
+  const header = (
+    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-6 py-3">
+        <div>
+          <h1 className="text-lg font-bold text-teal-700 dark:text-teal-400">🦷 Dental X-Ray Review</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{today}</p>
         </div>
-      </div>
-    );
-  }
 
-  if (!images) {
-    return (
-      <div className="mx-auto max-w-7xl px-6 py-10">
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="aspect-square animate-pulse rounded-2xl bg-slate-200 dark:bg-slate-800"
-            />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mx-auto max-w-7xl px-6 py-10">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
             Reviewer name:
@@ -94,42 +74,79 @@ export default function ImageGallery() {
               className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             />
           </label>
-          <span className="text-sm text-slate-500 dark:text-slate-400">{today}</span>
+
+          <button
+            type="button"
+            onClick={handleDownloadAll}
+            className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-teal-700 active:bg-teal-800"
+          >
+            ⬇ Download responses (Excel)
+          </button>
         </div>
       </div>
+    </header>
+  );
 
-      <div className="mb-6 flex items-center justify-between">
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+  if (error) {
+    return (
+      <>
+        {header}
+        <div className="mx-auto max-w-7xl px-6 py-10">
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+            Could not load the dataset: {error}
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (!images) {
+    return (
+      <>
+        {header}
+        <div className="mx-auto max-w-7xl px-6 py-10">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="aspect-square animate-pulse rounded-2xl bg-slate-200 dark:bg-slate-800"
+              />
+            ))}
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {header}
+
+      <div className="mx-auto max-w-7xl px-6 py-10">
+        <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
           {images.length} image{images.length === 1 ? "" : "s"}
         </p>
-        <button
-          type="button"
-          onClick={handleDownloadAll}
-          className="rounded-lg border border-teal-600 px-3 py-1.5 text-xs font-semibold text-teal-700 transition-colors hover:bg-teal-50 dark:border-teal-500 dark:text-teal-400 dark:hover:bg-teal-950/40"
-        >
-          Download responses (Excel)
-        </button>
-      </div>
 
-      {reviewsError && (
-        <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-          Could not load saved reviews from the server ({reviewsError}). Showing locally cached progress only.
+        {reviewsError && (
+          <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+            Could not load saved reviews from the server ({reviewsError}). Showing locally cached progress only.
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {images.map((img, idx) => (
+            <ImageCard
+              key={img.id}
+              image={img}
+              displayNumber={idx + 1}
+              savedReview={reviews[img.id] ?? null}
+              reviewerName={reviewerName}
+              onSave={saveReview}
+              onUnmark={unmarkReview}
+            />
+          ))}
         </div>
-      )}
-
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {images.map((img, idx) => (
-          <ImageCard
-            key={img.id}
-            image={img}
-            displayNumber={idx + 1}
-            savedReview={reviews[img.id] ?? null}
-            reviewerName={reviewerName}
-            onSave={saveReview}
-            onUnmark={unmarkReview}
-          />
-        ))}
       </div>
-    </div>
+    </>
   );
 }

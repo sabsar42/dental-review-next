@@ -36,8 +36,36 @@ function writeCachedResponses(responses: Record<number, ImageReview>) {
   }
 }
 
+/**
+ * The reviewer name is shared across everyone using the app — stored
+ * server-side so it's the same regardless of browser, device, or which
+ * deploy URL someone opens. localStorage is only an instant-paint cache
+ * while the server fetch is in flight.
+ */
 export function useReviewerName() {
   const [name, setNameState] = useState(() => readReviewerName());
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/reviewer-name")
+      .then(async (res) => {
+        const data = await res.json();
+        if (cancelled || !res.ok) return;
+        setNameState(data.name ?? "");
+        try {
+          window.localStorage.setItem(REVIEWER_NAME_KEY, data.name ?? "");
+        } catch {
+          // ignore
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const setName = useCallback((value: string) => {
     setNameState(value);
@@ -46,9 +74,16 @@ export function useReviewerName() {
     } catch {
       // ignore
     }
+    fetch("/api/reviewer-name", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: value }),
+    }).catch(() => {
+      // best-effort — the name still updates locally even if the server write fails
+    });
   }, []);
 
-  return { name, setName };
+  return { name, setName, loaded };
 }
 
 /**
