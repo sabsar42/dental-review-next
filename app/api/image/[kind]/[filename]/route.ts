@@ -1,12 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { fetchHfFile, imageRepoPath, overlayRepoPath } from "@/lib/hf";
 
 export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ filename: string }> }
+  _req: Request,
+  { params }: { params: Promise<{ kind: string; filename: string }> }
 ) {
-  const { filename } = await params;
-  const kind = req.nextUrl.searchParams.get("kind") === "overlay" ? "overlay" : "raw";
+  const { kind: rawKind, filename } = await params;
+  // path segment, not a query string — the CDN caches by full path, so each
+  // kind gets its own distinct, correctly-cached URL
+  const kind = rawKind === "overlay" ? "overlay" : "raw";
 
   const decodedName = decodeURIComponent(filename);
   const repoPath = kind === "overlay" ? overlayRepoPath(decodedName) : imageRepoPath(decodedName);

@@ -51,7 +51,7 @@ export default function ImageCard({
   const reviewed = savedReview !== null;
 
   const encodedName = encodeURIComponent(image.fileName);
-  const thumbSrc = `/api/image/${encodedName}?kind=overlay`;
+  const thumbSrc = `/api/image/overlay/${encodedName}`;
 
   async function handleUnmark() {
     setUnmarking(true);
@@ -241,7 +241,7 @@ function ExpandedReview({
   }, []);
 
   const encodedName = encodeURIComponent(image.fileName);
-  const src = `/api/image/${encodedName}?kind=${showOverlay ? "overlay" : "raw"}`;
+  const src = `/api/image/${showOverlay ? "overlay" : "raw"}/${encodedName}`;
 
   function removeFlag(t: ToothAnnotation) {
     setFlagged((prev) => {
