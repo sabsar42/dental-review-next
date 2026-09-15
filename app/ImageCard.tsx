@@ -78,9 +78,9 @@ export default function ImageCard({
 
   return (
     <div
-      className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition-all dark:bg-slate-900 ${
-        reviewed ? "border-green-300 dark:border-green-800" : "border-slate-200 dark:border-slate-800"
-      } ${expanded ? "col-span-full" : ""}`}
+      className={`rounded-2xl border bg-white shadow-sm transition-all dark:bg-slate-900 ${
+        expanded ? "col-span-full" : "overflow-hidden"
+      } ${reviewed ? "border-green-300 dark:border-green-800" : "border-slate-200 dark:border-slate-800"}`}
     >
       {!expanded && (
         <>
