@@ -284,7 +284,7 @@ function ExpandedReview({
                         openToothNumber === t.toothNumber
                           ? "border-teal-600 bg-teal-500 text-white"
                           : flagged.has(t.toothNumber)
-                            ? "border-amber-600 bg-amber-400 text-amber-950"
+                            ? "border-red-600 bg-red-400 text-red-950"
                             : "border-black/60 bg-white text-slate-800"
                       }`}
                       style={{
@@ -301,45 +301,13 @@ function ExpandedReview({
           </div>
         </div>
 
-        {/* RIGHT: fixed "about this X-ray" card + scrollable tooth list */}
+        {/* RIGHT: scrollable tooth list + fixed "about this X-ray" card below it */}
         <div className="flex max-h-[85vh] flex-col">
-          <div className="space-y-3 p-5 pb-0">
-            {banner && (
-              <div className="rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/40 dark:text-green-300">
-                {banner}
-              </div>
-            )}
-
-            <section className="space-y-4 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">About this X-ray</h3>
-
-              <div className="space-y-2">
-                <YesNoQuestion label="Any teeth clearly visible but not marked at all?" value={q1} onChange={setQ1} />
-                {q1 === "Yes" && (
-                  <textarea
-                    value={q1Detail}
-                    onChange={(e) => setQ1Detail(e.target.value)}
-                    placeholder="Describe by location, e.g. upper left back molar"
-                    rows={2}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
-                  />
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <YesNoQuestion label="Any marks on areas that don't look like a tooth?" value={q2} onChange={setQ2} />
-                {q2 === "Yes" && (
-                  <textarea
-                    value={q2Detail}
-                    onChange={(e) => setQ2Detail(e.target.value)}
-                    placeholder="Describe which marks look incorrect"
-                    rows={2}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
-                  />
-                )}
-              </div>
-            </section>
-          </div>
+          {banner && (
+            <div className="mx-5 mt-5 rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/40 dark:text-green-300">
+              {banner}
+            </div>
+          )}
 
           <div className="flex-1 space-y-3 overflow-y-auto p-5">
             <section>
@@ -364,18 +332,12 @@ function ExpandedReview({
                         isOpen
                           ? "bg-teal-50 dark:bg-teal-950/30"
                           : isFlagged
-                            ? "bg-amber-50 dark:bg-amber-950/20"
+                            ? "bg-red-50 dark:bg-red-950/10"
                             : "hover:bg-slate-50 dark:hover:bg-slate-800/60"
                       }`}
                     >
                       <span className="flex items-center gap-2">
-                        <span
-                          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                            isFlagged
-                              ? "bg-amber-400 text-amber-950"
-                              : "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
-                          }`}
-                        >
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-xs font-bold text-black">
                           {t.toothNumber}
                         </span>
                         <span className="text-slate-700 dark:text-slate-300">{t.toothType}</span>
@@ -414,7 +376,7 @@ function ExpandedReview({
                     </button>
 
                     {isOpen && issue && (
-                      <div className="border-t border-amber-200 bg-amber-50/60 px-3 py-3 dark:border-amber-900 dark:bg-amber-950/20">
+                      <div className="border-t border-red-200 bg-red-50/60 px-3 py-3 dark:border-red-900 dark:bg-red-950/10">
                         <p className="mb-2 text-xs font-semibold text-slate-600 dark:text-slate-400">
                           What&apos;s wrong with tooth {t.toothNumber}?
                         </p>
@@ -428,7 +390,7 @@ function ExpandedReview({
                                 type="checkbox"
                                 checked={issue.reasons.includes(r)}
                                 onChange={() => toggleReason(t.annotationId, r)}
-                                className="h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                                className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
                               />
                               {r}
                             </label>
@@ -474,38 +436,45 @@ function ExpandedReview({
                   </div>
                 );
               })}
-            </div>
-          </section>
+              </div>
+            </section>
+          </div>
 
-          <section className="space-y-4 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">About this X-ray</h3>
+          <div className="border-t border-slate-200 p-5 dark:border-slate-800">
+            <section className="space-y-4 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">About this X-ray</h3>
 
-            <div className="space-y-2">
-              <YesNoQuestion label="Any teeth clearly visible but not marked at all?" value={q1} onChange={setQ1} />
-              {q1 === "Yes" && (
-                <textarea
-                  value={q1Detail}
-                  onChange={(e) => setQ1Detail(e.target.value)}
-                  placeholder="Describe by location, e.g. upper left back molar"
-                  rows={2}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
+              <div className="space-y-2">
+                <YesNoQuestion label="Any teeth clearly visible but not marked at all?" value={q1} onChange={setQ1} />
+                {q1 === "Yes" && (
+                  <textarea
+                    value={q1Detail}
+                    onChange={(e) => setQ1Detail(e.target.value)}
+                    placeholder="Describe by location, e.g. upper left back molar"
+                    rows={2}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
+                  />
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <YesNoQuestion
+                  label="Any marks on areas that don't look like a tooth?"
+                  value={q2}
+                  onChange={setQ2}
+                  accent="indigo"
                 />
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <YesNoQuestion label="Any marks on areas that don't look like a tooth?" value={q2} onChange={setQ2} />
-              {q2 === "Yes" && (
-                <textarea
-                  value={q2Detail}
-                  onChange={(e) => setQ2Detail(e.target.value)}
-                  placeholder="Describe which marks look incorrect"
-                  rows={2}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
-                />
-              )}
-            </div>
-          </section>
+                {q2 === "Yes" && (
+                  <textarea
+                    value={q2Detail}
+                    onChange={(e) => setQ2Detail(e.target.value)}
+                    placeholder="Describe which marks look incorrect"
+                    rows={2}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
+                  />
+                )}
+              </div>
+            </section>
           </div>
 
           <div className="flex items-center justify-between gap-3 border-t border-slate-200 p-4 dark:border-slate-800">
@@ -534,13 +503,22 @@ function YesNoQuestion({
   label,
   value,
   onChange,
+  accent = "teal",
 }: {
   label: string;
   value: "Yes" | "No";
   onChange: (v: "Yes" | "No") => void;
+  accent?: "teal" | "indigo";
 }) {
+  const borderClass =
+    accent === "teal"
+      ? "border-teal-300 dark:border-teal-700"
+      : "border-indigo-300 dark:border-indigo-700";
+
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg bg-slate-50 px-3 py-2.5 dark:bg-slate-800/60">
+    <div
+      className={`flex items-center justify-between gap-4 rounded-lg border-2 bg-slate-50 px-3 py-2.5 dark:bg-slate-800/60 ${borderClass}`}
+    >
       <p className="text-sm text-slate-700 dark:text-slate-300">{label}</p>
       <div className="flex shrink-0 gap-3">
         {(["No", "Yes"] as const).map((opt) => (
