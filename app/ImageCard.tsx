@@ -37,6 +37,7 @@ export default function ImageCard({
   onSave,
   onUnmark,
   priorityLoad = false,
+  onExpandedChange,
 }: {
   image: DatasetImage;
   displayNumber: number;
@@ -45,12 +46,18 @@ export default function ImageCard({
   onSave: (imageId: number, review: ImageReview) => Promise<void>;
   onUnmark: (imageId: number) => Promise<void>;
   priorityLoad?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpandedState] = useState(false);
   const [confirmingUnmark, setConfirmingUnmark] = useState(false);
   const [unmarking, setUnmarking] = useState(false);
   const [unmarkError, setUnmarkError] = useState<string | null>(null);
   const reviewed = savedReview !== null;
+
+  function setExpanded(next: boolean) {
+    setExpandedState(next);
+    onExpandedChange?.(next);
+  }
 
   const encodedName = encodeURIComponent(image.fileName);
   const thumbSrc = `/api/image/overlay/${encodedName}`;
@@ -385,40 +392,23 @@ function ExpandedReview({
 
   return (
     <div>
-      {/* Header row: title + view controls, spans full width above both panes */}
-      <div className="flex flex-col gap-3 border-b border-slate-200 p-4 pb-4 sm:p-5 dark:border-slate-800">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h2 className="text-sm font-semibold text-teal-700 dark:text-teal-400">X-ray {displayNumber}</h2>
-          <span className="text-xs text-slate-500 dark:text-slate-400">{teeth.length} teeth marked</span>
-          <AutoSaveIndicator status={autoSaveStatus} />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <label className="flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 sm:flex-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-            <input
-              type="checkbox"
-              checked={showOverlay}
-              onChange={(e) => setShowOverlay(e.target.checked)}
-              className="h-5 w-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
-            />
-            Show overlay
-          </label>
-          <label className="flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 sm:flex-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-            <input
-              type="checkbox"
-              checked={showNumbers}
-              onChange={(e) => setShowNumbers(e.target.checked)}
-              className="h-5 w-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
-            />
-            Show numbers
-          </label>
-        </div>
+      {/* Title row: informational only, scrolls away with the page on
+          mobile — the interactive view controls live with the sticky
+          image below so they stay reachable while reviewing. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-200 p-4 pb-3 sm:p-5 dark:border-slate-800">
+        <h2 className="text-sm font-semibold text-teal-700 dark:text-teal-400">X-ray {displayNumber}</h2>
+        <span className="text-xs text-slate-500 dark:text-slate-400">{teeth.length} teeth marked</span>
+        <AutoSaveIndicator status={autoSaveStatus} />
       </div>
 
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
-        {/* LEFT: image pane — fixed/sticky only at lg+; flows normally on mobile */}
-        <div className="border-b border-slate-200 p-4 sm:p-5 lg:border-b-0 lg:border-r dark:border-slate-800">
-          <div className="lg:sticky lg:top-4">
-            <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
+        {/* LEFT: image pane. On mobile it's pinned near the top of the
+            screen (below the collapsed navbar) so the X-ray and its view
+            controls stay visible while the tooth list scrolls underneath —
+            at lg+ it's the taller sticky pane in the two-column layout. */}
+        <div className="sticky top-12 z-10 space-y-2 border-b border-slate-200 bg-white p-3 sm:p-5 lg:static lg:border-b-0 lg:border-r dark:border-slate-800 dark:bg-slate-900">
+          <div className="lg:sticky lg:top-4 lg:space-y-3">
+            <div className="relative mx-auto aspect-square h-[38vh] max-h-80 w-auto overflow-hidden rounded-xl bg-slate-100 sm:h-auto sm:max-h-none sm:w-full dark:bg-slate-800">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={src}
@@ -449,6 +439,27 @@ function ExpandedReview({
                     </div>
                   ) : null
                 )}
+            </div>
+
+            <div className="flex gap-2">
+              <label className="flex min-h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700 sm:min-h-11 sm:flex-none sm:px-3 sm:py-2 sm:text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={showOverlay}
+                  onChange={(e) => setShowOverlay(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500 sm:h-5 sm:w-5"
+                />
+                Show overlay
+              </label>
+              <label className="flex min-h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700 sm:min-h-11 sm:flex-none sm:px-3 sm:py-2 sm:text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={showNumbers}
+                  onChange={(e) => setShowNumbers(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500 sm:h-5 sm:w-5"
+                />
+                Show numbers
+              </label>
             </div>
           </div>
         </div>

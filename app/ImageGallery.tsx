@@ -21,6 +21,10 @@ export default function ImageGallery() {
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
+  // tracks whether any card is currently expanded for review — used to
+  // collapse the navbar on mobile so the sticky X-ray image inside the
+  // review has room to pin near the very top of the screen
+  const [expandedImageId, setExpandedImageId] = useState<number | null>(null);
 
   const today = new Date().toLocaleDateString(undefined, {
     weekday: "long",
@@ -72,16 +76,32 @@ export default function ImageGallery() {
     };
   }, []);
 
+  const isReviewing = expandedImageId !== null;
+
   const header = (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
-      <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
+      {/* On mobile, collapse to a slim bar while a review is open, so the
+          review's own sticky image can pin near the very top of the screen
+          instead of guessing this navbar's (variable) height. */}
+      <div
+        className={`mx-auto max-w-7xl px-4 sm:px-6 ${isReviewing ? "py-2 lg:py-3" : "py-3"}`}
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
+          <div className={isReviewing ? "hidden lg:block" : ""}>
             <h1 className="text-lg font-bold text-teal-700 dark:text-teal-400">🦷 Dental X-Ray Review</h1>
             <p className="text-xs text-slate-500 dark:text-slate-400">{today}</p>
           </div>
+          {isReviewing && (
+            <p className="text-sm font-semibold text-teal-700 lg:hidden dark:text-teal-400">
+              🦷 Reviewing
+            </p>
+          )}
 
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+          <div
+            className={`flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center ${
+              isReviewing ? "hidden lg:flex" : ""
+            }`}
+          >
             <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
               <span className="shrink-0">Reviewer name:</span>
               <input
@@ -210,6 +230,9 @@ export default function ImageGallery() {
               onSave={saveReview}
               onUnmark={unmarkReview}
               priorityLoad={idx < 3}
+              onExpandedChange={(expanded) =>
+                setExpandedImageId((cur) => (expanded ? img.id : cur === img.id ? null : cur))
+              }
             />
           ))}
         </div>
