@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ExportRow, ImageReview } from "./reviewTypes";
 
 const REVIEWER_NAME_KEY = "dental-review:reviewer-name";
-const RESPONSES_KEY = "dental-review:responses";
+const RESPONSES_CACHE_KEY = "dental-review:responses-cache";
 
 function readReviewerName(): string {
   if (typeof window === "undefined") return "";
@@ -15,21 +15,24 @@ function readReviewerName(): string {
   }
 }
 
-function readResponses(): Record<number, ImageReview> {
+// localStorage is used only as an instant-paint cache of the last known
+// server state — the server (Netlify Blobs, via /api/reviews) is the source
+// of truth so progress survives across browsers, devices, and deploy URLs.
+function readCachedResponses(): Record<number, ImageReview> {
   if (typeof window === "undefined") return {};
   try {
-    const raw = window.localStorage.getItem(RESPONSES_KEY);
+    const raw = window.localStorage.getItem(RESPONSES_CACHE_KEY);
     return raw ? (JSON.parse(raw) as Record<number, ImageReview>) : {};
   } catch {
     return {};
   }
 }
 
-function writeResponses(responses: Record<number, ImageReview>) {
+function writeCachedResponses(responses: Record<number, ImageReview>) {
   try {
-    window.localStorage.setItem(RESPONSES_KEY, JSON.stringify(responses));
+    window.localStorage.setItem(RESPONSES_CACHE_KEY, JSON.stringify(responses));
   } catch {
-    // localStorage unavailable (private mode, quota, etc.) — responses stay in memory only
+    // best-effort cache only — server round-trip still works without it
   }
 }
 
@@ -48,28 +51,65 @@ export function useReviewerName() {
   return { name, setName };
 }
 
-export function getSavedImageReview(imageId: number): ImageReview | null {
-  return readResponses()[imageId] ?? null;
+/**
+ * Loads all saved reviews from the server, seeded instantly from the local
+ * cache while the network request is in flight. Returns the live map plus a
+ * `saveReview` function that writes through to the server and updates local
+ * state + cache immediately.
+ */
+export function useReviews() {
+  const [reviews, setReviews] = useState<Record<number, ImageReview>>(() => readCachedResponses());
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/reviews")
+      .then(async (res) => {
+        const data = await res.json();
+        if (cancelled) return;
+        if (!res.ok) {
+          setLoadError(data.error ?? "Failed to load saved reviews");
+          return;
+        }
+        setReviews(data.reviews ?? {});
+        writeCachedResponses(data.reviews ?? {});
+      })
+      .catch((err) => {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : "Failed to load saved reviews");
+      })
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const saveReview = useCallback(async (imageId: number, review: ImageReview) => {
+    setReviews((prev) => {
+      const next = { ...prev, [imageId]: review };
+      writeCachedResponses(next);
+      return next;
+    });
+
+    const res = await fetch("/api/reviews", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(review),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error ?? "Failed to save review to the server");
+    }
+  }, []);
+
+  return { reviews, loaded, loadError, saveReview };
 }
 
-export function saveImageReview(imageId: number, review: ImageReview) {
-  const all = readResponses();
-  all[imageId] = review;
-  writeResponses(all);
-}
-
-export function getAllResponses(): Record<number, ImageReview> {
-  return readResponses();
-}
-
-export function reviewedImageIds(): Set<number> {
-  return new Set(Object.keys(readResponses()).map(Number));
-}
-
-export function toExportRows(reviewerName: string): ExportRow[] {
-  const all = readResponses();
+export function toExportRows(reviewerName: string, reviews: Record<number, ImageReview>): ExportRow[] {
   const rows: ExportRow[] = [];
-  for (const review of Object.values(all)) {
+  for (const review of Object.values(reviews)) {
     const issues = Object.values(review.issues).sort((a, b) => a.toothNumber - b.toothNumber);
     const flaggedNumbers = new Set(issues.map((i) => i.toothNumber));
 

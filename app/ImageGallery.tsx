@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ImageCard from "./ImageCard";
-import { toExportRows, useReviewerName } from "@/lib/reviewStore";
+import { toExportRows, useReviewerName, useReviews } from "@/lib/reviewStore";
 import { downloadResponsesAsExcel } from "@/lib/excelExport";
 
 export interface DatasetImage {
@@ -17,9 +17,10 @@ export default function ImageGallery() {
   const [images, setImages] = useState<DatasetImage[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { name: reviewerName } = useReviewerName();
+  const { reviews, loadError: reviewsError, saveReview } = useReviews();
 
   async function handleDownloadAll() {
-    const rows = toExportRows(reviewerName || "Unnamed reviewer");
+    const rows = toExportRows(reviewerName || "Unnamed reviewer", reviews);
     if (rows.length === 0) {
       alert("No responses saved yet. Review at least one image first.");
       return;
@@ -86,9 +87,22 @@ export default function ImageGallery() {
           Download responses (Excel)
         </button>
       </div>
+
+      {reviewsError && (
+        <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+          Could not load saved reviews from the server ({reviewsError}). Showing locally cached progress only.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {images.map((img, idx) => (
-          <ImageCard key={img.id} image={img} displayNumber={idx + 1} />
+          <ImageCard
+            key={img.id}
+            image={img}
+            displayNumber={idx + 1}
+            savedReview={reviews[img.id] ?? null}
+            onSave={saveReview}
+          />
         ))}
       </div>
     </div>

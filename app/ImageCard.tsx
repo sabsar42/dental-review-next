@@ -10,8 +10,6 @@ import {
   type IssueReason,
   type ToothIssue,
 } from "@/lib/reviewTypes";
-import { getSavedImageReview, saveImageReview } from "@/lib/reviewStore";
-
 interface AnnotationsResponse {
   imageId: number;
   fileName: string;
@@ -20,9 +18,19 @@ interface AnnotationsResponse {
   teeth: ToothAnnotation[];
 }
 
-export default function ImageCard({ image, displayNumber }: { image: DatasetImage; displayNumber: number }) {
+export default function ImageCard({
+  image,
+  displayNumber,
+  savedReview,
+  onSave,
+}: {
+  image: DatasetImage;
+  displayNumber: number;
+  savedReview: ImageReview | null;
+  onSave: (imageId: number, review: ImageReview) => Promise<void>;
+}) {
   const [expanded, setExpanded] = useState(false);
-  const [reviewed, setReviewed] = useState(() => getSavedImageReview(image.id) !== null);
+  const reviewed = savedReview !== null;
 
   const encodedName = encodeURIComponent(image.fileName);
   const thumbSrc = `/api/image/${encodedName}?kind=overlay`;
@@ -70,8 +78,9 @@ export default function ImageCard({ image, displayNumber }: { image: DatasetImag
         <ExpandedReview
           image={image}
           displayNumber={displayNumber}
+          savedReview={savedReview}
           onClose={() => setExpanded(false)}
-          onReviewedChange={setReviewed}
+          onSave={onSave}
         />
       )}
     </div>
@@ -92,25 +101,31 @@ function emptyIssue(t: ToothAnnotation): ToothIssue {
 function ExpandedReview({
   image,
   displayNumber,
+  savedReview,
   onClose,
-  onReviewedChange,
+  onSave,
 }: {
   image: DatasetImage;
   displayNumber: number;
+  savedReview: ImageReview | null;
   onClose: () => void;
-  onReviewedChange: (reviewed: boolean) => void;
+  onSave: (imageId: number, review: ImageReview) => Promise<void>;
 }) {
   const [annotations, setAnnotations] = useState<AnnotationsResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [showOverlay, setShowOverlay] = useState(true);
   const [showNumbers, setShowNumbers] = useState(true);
 
-  const [q1, setQ1] = useState<"Yes" | "No">("No");
-  const [q1Detail, setQ1Detail] = useState("");
-  const [q2, setQ2] = useState<"Yes" | "No">("No");
-  const [q2Detail, setQ2Detail] = useState("");
-  const [flagged, setFlagged] = useState<Set<number>>(new Set());
-  const [issues, setIssues] = useState<Record<number, ToothIssue>>({});
+  const [q1, setQ1] = useState<"Yes" | "No">(savedReview?.missingTeeth ?? "No");
+  const [q1Detail, setQ1Detail] = useState(savedReview?.missingDescription ?? "");
+  const [q2, setQ2] = useState<"Yes" | "No">(savedReview?.phantomMarks ?? "No");
+  const [q2Detail, setQ2Detail] = useState(savedReview?.phantomDescription ?? "");
+  const [flagged, setFlagged] = useState<Set<number>>(
+    () => new Set(Object.values(savedReview?.issues ?? {}).map((i) => i.toothNumber))
+  );
+  const [issues, setIssues] = useState<Record<number, ToothIssue>>(savedReview?.issues ?? {});
   // the flagged tooth whose small edit dropdown is currently open (only one at a time)
   const [openToothNumber, setOpenToothNumber] = useState<number | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
@@ -126,17 +141,6 @@ function ExpandedReview({
           return;
         }
         setAnnotations(data);
-
-        const saved = getSavedImageReview(data.imageId);
-        if (saved) {
-          setQ1(saved.missingTeeth);
-          setQ1Detail(saved.missingDescription);
-          setQ2(saved.phantomMarks);
-          setQ2Detail(saved.phantomDescription);
-          setIssues(saved.issues);
-          setFlagged(new Set(Object.values(saved.issues).map((i) => i.toothNumber)));
-          setOpenToothNumber(null);
-        }
       })
       .catch((err) => {
         if (!cancelled) setLoadError(err instanceof Error ? err.message : "Failed to load teeth for this image");
@@ -197,7 +201,7 @@ function ExpandedReview({
     });
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!annotations) return;
 
     const review: ImageReview = {
@@ -215,10 +219,18 @@ function ExpandedReview({
       issues,
       reviewedAt: new Date().toISOString(),
     };
-    saveImageReview(annotations.imageId, review);
-    onReviewedChange(true);
-    setBanner("Saved.");
-    setTimeout(() => onClose(), 400);
+
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await onSave(annotations.imageId, review);
+      setBanner("Saved.");
+      setTimeout(() => onClose(), 400);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to save — please try again");
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (loadError) {
@@ -306,6 +318,11 @@ function ExpandedReview({
           {banner && (
             <div className="mx-5 mt-5 rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/40 dark:text-green-300">
               {banner}
+            </div>
+          )}
+          {saveError && (
+            <div className="mx-5 mt-5 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300">
+              Could not save: {saveError}
             </div>
           )}
 
@@ -488,9 +505,10 @@ function ExpandedReview({
             <button
               type="button"
               onClick={handleSave}
-              className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700"
+              disabled={saving}
+              className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Save and mark complete
+              {saving ? "Saving…" : "Save and mark complete"}
             </button>
           </div>
         </div>
