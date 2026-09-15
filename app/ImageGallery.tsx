@@ -17,7 +17,10 @@ export default function ImageGallery() {
   const [images, setImages] = useState<DatasetImage[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { name: reviewerName, setName: setReviewerName } = useReviewerName();
-  const { reviews, loadError: reviewsError, saveReview, unmarkReview } = useReviews();
+  const { reviews, loadError: reviewsError, saveReview, unmarkReview, resetAll } = useReviews();
+  const [confirmingReset, setConfirmingReset] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   const today = new Date().toLocaleDateString(undefined, {
     weekday: "long",
@@ -33,6 +36,20 @@ export default function ImageGallery() {
       return;
     }
     await downloadResponsesAsExcel(rows);
+  }
+
+  async function handleReset() {
+    setResetting(true);
+    setResetError(null);
+    try {
+      await resetAll();
+      setReviewerName("");
+      setConfirmingReset(false);
+    } catch (err) {
+      setResetError(err instanceof Error ? err.message : "Failed to reset — please try again");
+    } finally {
+      setResetting(false);
+    }
   }
 
   useEffect(() => {
@@ -82,15 +99,58 @@ export default function ImageGallery() {
           >
             ⬇ Download responses (Excel)
           </button>
+
+          <button
+            type="button"
+            onClick={() => setConfirmingReset(true)}
+            title="Reset everything — name and all reviews"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-500 transition-colors hover:border-red-400 hover:text-red-600 dark:border-slate-700 dark:text-slate-400 dark:hover:border-red-700 dark:hover:text-red-400"
+          >
+            Reset
+          </button>
         </div>
       </div>
     </header>
+  );
+
+  const resetDialog = confirmingReset && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl dark:bg-slate-900">
+        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Are you sure you want to reset it?</h3>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+          This clears the reviewer name and every saved review for everyone using this site. This cannot be undone.
+        </p>
+        {resetError && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{resetError}</p>}
+        <div className="mt-4 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setConfirmingReset(false);
+              setResetError(null);
+            }}
+            disabled={resetting}
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-teal-400 hover:text-teal-700 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+          >
+            No
+          </button>
+          <button
+            type="button"
+            onClick={handleReset}
+            disabled={resetting}
+            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {resetting ? "Resetting…" : "Yes, reset"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 
   if (error) {
     return (
       <>
         {header}
+        {resetDialog}
         <div className="mx-auto max-w-7xl px-6 py-10">
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
             Could not load the dataset: {error}
@@ -104,6 +164,7 @@ export default function ImageGallery() {
     return (
       <>
         {header}
+        {resetDialog}
         <div className="mx-auto max-w-7xl px-6 py-10">
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -121,6 +182,7 @@ export default function ImageGallery() {
   return (
     <>
       {header}
+      {resetDialog}
 
       <div className="mx-auto max-w-7xl px-6 py-10">
         <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">

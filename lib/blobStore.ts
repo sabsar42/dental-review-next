@@ -78,3 +78,14 @@ export async function deleteReview(imageId: number): Promise<void> {
     // nothing to fall back to — if Blobs is unreachable there's nothing saved anyway
   }
 }
+
+export async function resetAll(): Promise<void> {
+  memoryFallback = {};
+  memoryReviewerName = "";
+  try {
+    await store().setJSON(KEY, {});
+    await store().set(REVIEWER_NAME_KEY, "");
+  } catch {
+    // in-memory state above still reflects the reset
+  }
+}

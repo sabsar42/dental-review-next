@@ -203,6 +203,7 @@ function ExpandedReview({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [showOverlay, setShowOverlay] = useState(true);
   const [showNumbers, setShowNumbers] = useState(true);
 
@@ -289,6 +290,42 @@ function ExpandedReview({
     });
   }
 
+  function buildReview(currentAnnotations: AnnotationsResponse): ImageReview {
+    return {
+      imageId: currentAnnotations.imageId,
+      imageFileName: currentAnnotations.fileName,
+      reviewerName: reviewerName.trim(),
+      missingTeeth: q1,
+      missingDescription: q1Detail,
+      phantomMarks: q2,
+      phantomDescription: q2Detail,
+      teeth: currentAnnotations.teeth.map((t) => ({
+        toothNumber: t.toothNumber,
+        annotationId: t.annotationId,
+        toothType: t.toothType,
+      })),
+      issues,
+      reviewedAt: new Date().toISOString(),
+    };
+  }
+
+  // Auto-save in the background whenever the reviewer changes something,
+  // as a safety net — the explicit Save button below remains the way to
+  // confirm the review is complete and close the card.
+  useEffect(() => {
+    if (!annotations || !reviewerName.trim()) return;
+
+    const timer = setTimeout(() => {
+      setAutoSaveStatus("saving");
+      onSave(annotations.imageId, buildReview(annotations))
+        .then(() => setAutoSaveStatus("saved"))
+        .catch(() => setAutoSaveStatus("error"));
+    }, 1000);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [annotations, reviewerName, q1, q1Detail, q2, q2Detail, issues]);
+
   async function handleSave() {
     if (!annotations) return;
 
@@ -297,27 +334,13 @@ function ExpandedReview({
       return;
     }
 
-    const review: ImageReview = {
-      imageId: annotations.imageId,
-      imageFileName: annotations.fileName,
-      reviewerName: reviewerName.trim(),
-      missingTeeth: q1,
-      missingDescription: q1Detail,
-      phantomMarks: q2,
-      phantomDescription: q2Detail,
-      teeth: annotations.teeth.map((t) => ({
-        toothNumber: t.toothNumber,
-        annotationId: t.annotationId,
-        toothType: t.toothType,
-      })),
-      issues,
-      reviewedAt: new Date().toISOString(),
-    };
+    const review = buildReview(annotations);
 
     setSaving(true);
     setSaveError(null);
     try {
       await onSave(annotations.imageId, review);
+      setAutoSaveStatus("saved");
       setBanner("Saved.");
       setTimeout(() => onClose(), 400);
     } catch (err) {
@@ -351,6 +374,7 @@ function ExpandedReview({
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-semibold text-teal-700 dark:text-teal-400">X-ray {displayNumber}</h2>
           <span className="text-xs text-slate-500 dark:text-slate-400">{teeth.length} teeth marked</span>
+          <AutoSaveIndicator status={autoSaveStatus} />
         </div>
         <div className="flex flex-wrap gap-2">
           <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
@@ -608,6 +632,35 @@ function ExpandedReview({
         </div>
       </div>
     </div>
+  );
+}
+
+function AutoSaveIndicator({ status }: { status: "idle" | "saving" | "saved" | "error" }) {
+  if (status === "idle") return null;
+
+  if (status === "saving") {
+    return (
+      <span className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+        Saving…
+      </span>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <span className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
+        <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+        Auto-save failed
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+      <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+      Saved
+    </span>
   );
 }
 

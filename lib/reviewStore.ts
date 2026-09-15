@@ -158,7 +158,18 @@ export function useReviews() {
     }
   }, [reviews]);
 
-  return { reviews, loaded, loadError, saveReview, unmarkReview };
+  const resetAll = useCallback(async () => {
+    setReviews({});
+    writeCachedResponses({});
+
+    const res = await fetch("/api/reset", { method: "POST" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error ?? "Failed to reset on the server");
+    }
+  }, []);
+
+  return { reviews, loaded, loadError, saveReview, unmarkReview, resetAll };
 }
 
 export function toExportRows(reviews: Record<number, ImageReview>): ExportRow[] {
