@@ -60,7 +60,9 @@ export default function ImageCard({
   }
 
   const encodedName = encodeURIComponent(image.fileName);
-  const thumbSrc = `/api/image/overlay/${encodedName}`;
+  // Gallery cards only ever display this at a few hundred px — request a
+  // resized WebP instead of the full 1024x1024 source (roughly 90% smaller).
+  const thumbSrc = `/api/image/overlay/${encodedName}?w=480`;
   const rawSrc = `/api/image/raw/${encodedName}`;
 
   async function handleUnmark() {
