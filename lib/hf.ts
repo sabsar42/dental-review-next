@@ -232,9 +232,9 @@ export function assignFdiNumbers(teeth: PositionedTooth[]): Map<number, number> 
 // then bottom row — the order a dentist reads a chart in, not plain numeric
 // order (which would wrongly put 21 right after 17).
 //   upper row: 18,17,...,11, 21,22,...,28
-//   lower row: 38,37,...,31, 41,42,...,48
+//   lower row: 31,32,...,38, 41,42,...,48
 const FDI_DISPLAY_ORDER = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28,
-  38, 37, 36, 35, 34, 33, 32, 31, 41, 42, 43, 44, 45, 46, 47, 48];
+  31, 32, 33, 34, 35, 36, 37, 38, 41, 42, 43, 44, 45, 46, 47, 48];
 
 export function fdiDisplayRank(toothNumber: number): number {
   const rank = FDI_DISPLAY_ORDER.indexOf(toothNumber);
